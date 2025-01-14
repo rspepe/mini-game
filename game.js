@@ -92,10 +92,10 @@ class Game {
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const minDistance = fruit.radius + other.radius;
 
-                if (distance < minDistance * 0.8) {
-                    // 衝突時の位置調整（さらに厳密な方法）
+                if (distance < minDistance * 0.7) {
+                    // 衝突時の位置調整（さらに厳格な方法）
                     const angle = Math.atan2(dy, dx);
-                    const overlap = (minDistance - distance) * 1.2;
+                    const overlap = (minDistance - distance) * 1.3;
                     
                     // 重なりを解消する量を計算
                     const moveX = Math.cos(angle) * overlap / 2;
@@ -143,7 +143,7 @@ class Game {
 
         // 描画
         this.draw();
-        requestAnimationFrame(() => this.update());
+        setTimeout(() => requestAnimationFrame(() => this.update()), 10);
     }
 
     draw() {
