@@ -1,15 +1,14 @@
 // ゲームの設定
 const FRUITS = [
-    { radius: 15, color: '#FF9999', score: 1, name: 'チェリー' },
-    { radius: 22, color: '#FFB366', score: 3, name: 'みかん' },
-    { radius: 30, color: '#FFFF99', score: 6, name: 'レモン' },
-    { radius: 38, color: '#99FF99', score: 10, name: 'キウイ' },
-    { radius: 46, color: '#FF99FF', score: 15, name: 'ぶどう' },
-    { radius: 54, color: '#FF9966', score: 21, name: 'もも' },
-    { radius: 62, color: '#FF6666', score: 28, name: 'りんご' },
-    { radius: 70, color: '#FFCC66', score: 36, name: 'パイナップル' },
-    { radius: 78, color: '#99FF66', score: 45, name: 'メロン' },
-    { radius: 86, color: '#FF6699', score: 55, name: 'スイカ' }
+    { radius: 15, color: '#FF0000', score: 1, name: 'さくらんぼ', emoji: '🍒' },
+    { radius: 22, color: '#FF0844', score: 3, name: 'いちご', emoji: '🍓' },
+    { radius: 30, color: '#8A2BE2', score: 6, name: 'ぶどう', emoji: '🍇' },
+    { radius: 38, color: '#FFA500', score: 10, name: 'ポンカン', emoji: '🍊' },
+    { radius: 46, color: '#FF6633', score: 15, name: '柿', emoji: '🎃' },
+    { radius: 54, color: '#FF0000', score: 21, name: 'りんご', emoji: '🍎' },
+    { radius: 62, color: '#D4AF37', score: 28, name: '梨', emoji: '🍐' },
+    { radius: 70, color: '#FFD700', score: 36, name: 'パイナップル', emoji: '🍍' },
+    { radius: 86, color: '#008000', score: 55, name: 'スイカ', emoji: '🍉' }
 ];
 
 class Game {
@@ -43,7 +42,7 @@ class Game {
         this.nextFruit = {
             ...FRUITS[Math.floor(Math.random() * 5)], // 最初の5種類からランダム
             x: this.canvas.width / 2,
-            y: 50,
+            y: 150,
             vy: 0
         };
     }
@@ -51,7 +50,8 @@ class Game {
     dropFruit() {
         this.fruits.push({
             ...this.nextFruit,
-            x: this.mouseX
+            x: this.mouseX,
+            vy: 0
         });
         this.createNextFruit();
     }
@@ -61,8 +61,8 @@ class Game {
 
         // 物理演算
         const gravity = 0.5;
-        const friction = 0.8;
-        const elasticity = 0.6;
+        const friction = 0.5;
+        const elasticity = 0.4;
 
         // フルーツの更新
         for (let i = 0; i < this.fruits.length; i++) {
@@ -70,10 +70,18 @@ class Game {
             fruit.vy += gravity;
             fruit.y += fruit.vy;
 
-            // 床との衝突
+            // 床と壁との衝突
             if (fruit.y + fruit.radius > this.canvas.height) {
                 fruit.y = this.canvas.height - fruit.radius;
                 fruit.vy *= -elasticity;
+            }
+            // 左壁との衝突
+            if (fruit.x - fruit.radius < 0) {
+                fruit.x = fruit.radius;
+            }
+            // 右壁との衝突
+            if (fruit.x + fruit.radius > this.canvas.width) {
+                fruit.x = this.canvas.width - fruit.radius;
             }
 
             // 他のフルーツとの衝突
@@ -84,19 +92,26 @@ class Game {
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const minDistance = fruit.radius + other.radius;
 
-                if (distance < minDistance) {
-                    // 衝突時の位置調整
+                if (distance < minDistance * 0.8) {
+                    // 衝突時の位置調整（さらに厳密な方法）
                     const angle = Math.atan2(dy, dx);
-                    const targetX = fruit.x + Math.cos(angle) * minDistance;
-                    const targetY = fruit.y + Math.sin(angle) * minDistance;
+                    const overlap = (minDistance - distance) * 1.2;
                     
-                    const ax = (targetX - other.x) * 0.05;
-                    const ay = (targetY - other.y) * 0.05;
+                    // 重なりを解消する量を計算
+                    const moveX = Math.cos(angle) * overlap / 2;
+                    const moveY = Math.sin(angle) * overlap / 2;
                     
-                    fruit.x -= ax;
-                    fruit.y -= ay;
-                    other.x += ax;
-                    other.y += ay;
+                    // フルーツの位置を調整
+                    fruit.x -= moveX;
+                    fruit.y -= moveY;
+                    other.x += moveX;
+                    other.y += moveY;
+                    
+                    // 壁との衝突を考慮して位置を制限
+                    fruit.x = Math.max(fruit.radius, Math.min(this.canvas.width - fruit.radius, fruit.x));
+                    fruit.y = Math.max(fruit.radius, Math.min(this.canvas.height - fruit.radius, fruit.y));
+                    other.x = Math.max(other.radius, Math.min(this.canvas.width - other.radius, other.x));
+                    other.y = Math.max(other.radius, Math.min(this.canvas.height - other.radius, other.y));
 
                     // 同じ種類のフルーツが衝突した場合、合体
                     if (fruit.radius === other.radius) {
@@ -106,6 +121,7 @@ class Game {
                             fruit.color = FRUITS[nextFruitIndex].color;
                             fruit.score = FRUITS[nextFruitIndex].score;
                             fruit.name = FRUITS[nextFruitIndex].name;
+                            fruit.emoji = FRUITS[nextFruitIndex].emoji;
                             this.fruits.splice(j, 1);
                             this.score += FRUITS[nextFruitIndex].score;
                             document.getElementById('score').textContent = `スコア: ${this.score}`;
@@ -115,9 +131,9 @@ class Game {
             }
         }
 
-        // ゲームオーバー判定
+        // ゲームオーバー判定（落下中のフルーツは除外）
         for (const fruit of this.fruits) {
-            if (fruit.y - fruit.radius < 100) { // 上部境界線
+            if (fruit.y - fruit.radius < 100 && Math.abs(fruit.vy) < 2 && fruit.y < 150) { // 上部境界線 + 静止判定 + 初期位置除外
                 this.gameOver = true;
                 document.getElementById('game-over').style.display = 'block';
                 document.getElementById('final-score').textContent = this.score;
@@ -142,22 +158,36 @@ class Game {
 
         // 次のフルーツ
         if (this.nextFruit) {
+            // フルーツの背景
             this.ctx.beginPath();
             this.ctx.arc(this.mouseX, this.nextFruit.y, this.nextFruit.radius, 0, Math.PI * 2);
             this.ctx.fillStyle = this.nextFruit.color;
             this.ctx.fill();
             this.ctx.strokeStyle = '#000';
             this.ctx.stroke();
+
+            // 絵文字
+            this.ctx.font = `${this.nextFruit.radius}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(this.nextFruit.emoji, this.mouseX, this.nextFruit.y);
         }
 
         // 落下中のフルーツ
         for (const fruit of this.fruits) {
+            // フルーツの背景
             this.ctx.beginPath();
             this.ctx.arc(fruit.x, fruit.y, fruit.radius, 0, Math.PI * 2);
             this.ctx.fillStyle = fruit.color;
             this.ctx.fill();
             this.ctx.strokeStyle = '#000';
             this.ctx.stroke();
+
+            // 絵文字
+            this.ctx.font = `${fruit.radius}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(fruit.emoji, fruit.x, fruit.y);
         }
     }
 }
